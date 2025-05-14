@@ -1,10 +1,10 @@
-#Zephyr Integration
+# Zephyr Integration
 
-##Repository Structure
+## Repository Structure
 
 ![image](https://github.com/user-attachments/assets/7f544a7a-f30f-4b9b-be1d-fec9cb00b526)
 
-##Automation-framework Module
+## Automation-framework Module
 
 Technologies Used:
 Rest Assured: For API testing
@@ -14,7 +14,7 @@ Zephyr Squad Cloud integration via a dedicated Java CLI tool
 Jira tag parsing to map Cucumber scenarios to Jira test cases
 
 
-###Sample Feature File (api_tests.feature):
+### Sample Feature File (api_tests.feature):
 
 '''
 Feature: API Testing with Jira Integration
@@ -26,7 +26,7 @@ Feature: API Testing with Jira Integration
     Then the response status should be 201
 '''
 
-###Step Definitions (ApiStepDefinitions.java):
+### Step Definitions (ApiStepDefinitions.java):
 
 '''
 import io.cucumber.java.en.*;
@@ -52,16 +52,16 @@ public class ApiStepDefinitions {
 
 '''
 
-##Zephyr-updater-cli Module
+## Zephyr-updater-cli Module
 
-###Purpose:
+### Purpose:
 
 A standalone Java CLI tool that :
 - Parses Cucumber reports to extract Jira test case keys
 - Updates test execution status in Zephyr Squad Cloud via GraphQL
 - Attaches the Allure HTML report to the corresponding Jira test case
 
-###Usage:
+### Usage:
 '''
 java -jar zephyr-updater-cli.jar \
   --report-path=path/to/allure-report.zip \
@@ -70,7 +70,7 @@ java -jar zephyr-updater-cli.jar \
 
 '''
 
-###Key Components:
+### Key Components:
 
 **ExecutionUpdater.java**
 
@@ -89,7 +89,7 @@ Handles GraphQL mutations to create/update test executions in Zephyr Squad Cloud
 Uses Jira REST API to attach files to test cases
 
 
-###Integration Workflow
+### Integration Workflow
 
 **1. Test Execution:**
 
