@@ -1,38 +1,10 @@
 Repository Structure
 
-zephyr-cucumber-integration/
-|- automation-framework/
-|-   - src/
-|-   -   - test/
-|-   -   -   - java/
-|-   -   -   -   - steps/
-|-   -   -   -       - ApiStepDefinitions.java
-|-   -   -   - resources/
-|-   -   -       - features/
-|-   -   -           - api_tests.feature
-|-   - pom.xml
-|-   - README.md
-|- zephyr-updater-cli/
-|-   - src/
-|-   -   - main/
-|-   -       - java/
-|-   -           - com/
-|-   -               - Utils/
-|-   -                   - ExecutionUpdater.java
-|-   -                   - JiraAttachmentService.java
-|-   -                   - ZephyrGraphQLClient.java
-|-   - pom.xml
-|-   - README.md
-|- .gitlab-ci.yml
-|- README.md
-
-
-
+![image](https://github.com/user-attachments/assets/7f544a7a-f30f-4b9b-be1d-fec9cb00b526)
 
 Automation-framework Module
 
 Technologies Used:
-
 Rest Assured: For API testing
 Cucumber: For BDD-style test definitions
 Allure: For generating HTML reports
