@@ -25,7 +25,6 @@ Feature: API Testing with Jira Integration
 
 Step Definitions (ApiStepDefinitions.java):
 
-
 import io.cucumber.java.en.*;
 import static io.restassured.RestAssured.*;
 
