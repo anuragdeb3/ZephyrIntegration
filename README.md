@@ -6,7 +6,7 @@
 
 ## Automation-framework Module
 
-Technologies Used:
+**Technologies Used:**
 Rest Assured: For API testing
 Cucumber: For BDD-style test definitions
 Allure: For generating HTML reports
@@ -16,7 +16,7 @@ Jira tag parsing to map Cucumber scenarios to Jira test cases
 
 ### Sample Feature File (api_tests.feature):
 
-'''
+```
 Feature: API Testing with Jira Integration
 
   @CBDIDD-123
@@ -24,11 +24,11 @@ Feature: API Testing with Jira Integration
     Given I create a new user with name "John Doe"
     When I send a POST request to "/users"
     Then the response status should be 201
-'''
+```
 
 ### Step Definitions (ApiStepDefinitions.java):
 
-'''
+```
 import io.cucumber.java.en.*;
 import static io.restassured.RestAssured.*;
 
@@ -49,8 +49,7 @@ public class ApiStepDefinitions {
         // Implementation to verify response status
     }
 }
-
-'''
+```
 
 ## Zephyr-updater-cli Module
 
@@ -62,45 +61,45 @@ A standalone Java CLI tool that :
 - Attaches the Allure HTML report to the corresponding Jira test case
 
 ### Usage:
-'''
+```
 java -jar zephyr-updater-cli.jar \
   --report-path=path/to/allure-report.zip \
   --status=Pass \
   --jira-keys=JIRA-TEST-123,JIRA-TEST-456
 
-'''
+```
 
 ### Key Components:
 
 **ExecutionUpdater.java**
 
-Parses input arguments
-Calls ZephyrGraphQLClient to update test execution status
-Calls JiraAttachmentService to attach the Allure report
+- Parses input arguments
+- Calls ZephyrGraphQLClient to update test execution status
+- Calls JiraAttachmentService to attach the Allure report
 
 
 **ZephyrGraphQLClient.java**
 
-Handles GraphQL mutations to create/update test executions in Zephyr Squad Cloud
+- Handles GraphQL mutations to create/update test executions in Zephyr Squad Cloud
 
 
 **JiraAttachmentService.java**
 
-Uses Jira REST API to attach files to test cases
+- Uses Jira REST API to attach files to test cases
 
 
 ### Integration Workflow
 
 **1. Test Execution:**
 
-Run tests using the automation-framework module.
-Generate Allure HTML report.
+- Run tests using the automation-framework module.
+- Generate Allure HTML report.
 
 
 **2. Post-Execution:**
 
-Use the zephyr-updater-cli tool to:
-Parse the Allure report and extract Jira test case keys.
-Update test execution status in Zephyr Squad Cloud.
-Attach the Allure report to the corresponding Jira test cases.
+- Use the zephyr-updater-cli tool to:
+- Parse the Allure report and extract Jira test case keys.
+- Update test execution status in Zephyr Squad Cloud.
+- Attach the Allure report to the corresponding Jira test cases.
 
