@@ -1,1 +1,23 @@
 // .gitlab-ci.yml placeholder
+
+
+stage
+ test
+
+report
+
+
+
+
+create test cycle
+pull test case into that [ 
+
+pull
+
+curl 
+-f /target 
+http>jira
+
+
+
+
