@@ -1,105 +1,119 @@
 # Zephyr Integration
 
-## Repository Structure
-
-![image](https://github.com/user-attachments/assets/7f544a7a-f30f-4b9b-be1d-fec9cb00b526)
-
-## Automation-framework Module
-
-**Technologies Used:**
-Rest Assured: For API testing
-Cucumber: For BDD-style test definitions
-Allure: For generating HTML reports
-Zephyr Squad Cloud integration via a dedicated Java CLI tool
-Jira tag parsing to map Cucumber scenarios to Jira test cases
+- Parses Allure JSON reports
+- Creates a test cycle in Zephyr Squad
+- Adds test cases to the cycle
+- Updates their execution status
+- Optionally uploads Allure HTML reports
 
 
-### Sample Feature File (api_tests.feature):
+##1. Fetch Test Case IDs from Allure Reports
+Allure JSON files (allure-results) contain metadata such as:
+
+-name
+-status
+-labels (where you can include testCaseId if you tag it in code)
+
+###Sample Allure JSON (*.json) content:
+```
+{
+  "name": "Login API Test",
+  "status": "passed",
+  "labels": [
+    {"name": "testCaseId", "value": "JIRA-123"},
+    {"name": "severity", "value": "critical"}
+  ]
+}
+```
+You need to:
+
+- Parse all JSON files under allure-results/
+- Extract "testCaseId" from labels
+
+Tip: Tag your test cases with @Allure.label("testCaseId", "JIRA-123") in test code.
+
+##2. Create Test Cycle in JIRA Zephyr Squad
+API: Use Zephyr Squad API
+(usually accessible under https://<your-domain>.atlassian.net/rest/zephyr/latest/...)
+
+Sample Request:
+```
+POST /rest/zapi/latest/cycle
+Authorization: Bearer <token>
+
+{
+  "name": "Automation Cycle - May 16",
+  "projectId": <PROJECT_ID>,
+  "versionId": -1
+}
+```
+Response will include "id" of the created cycle.
+
+##3. Add Test Cases to Cycle
+Use the Zephyr Squad API to add test cases by issue keys (JIRA-123, etc.) into the cycle.
 
 ```
-Feature: API Testing with Jira Integration
+POST /rest/zapi/latest/execution
+Authorization: Bearer <token>
 
-  @CBDIDD-123
-  Scenario: Verify user creation API
-    Given I create a new user with name "John Doe"
-    When I send a POST request to "/users"
-    Then the response status should be 201
-```
-
-### Step Definitions (ApiStepDefinitions.java):
-
-```
-import io.cucumber.java.en.*;
-import static io.restassured.RestAssured.*;
-
-public class ApiStepDefinitions {
-
-    @Given("I create a new user with name {string}")
-    public void i_create_a_new_user(String name) {
-        // Implementation to create user payload
-    }
-
-    @When("I send a POST request to {string}")
-    public void i_send_post_request(String endpoint) {
-        // Implementation to send POST request
-    }
-
-    @Then("the response status should be {int}")
-    public void the_response_status_should_be(int statusCode) {
-        // Implementation to verify response status
-    }
+{
+  "issues": ["JIRA-123", "JIRA-124"],
+  "cycleId": "<cycleId>",
+  "projectId": "<projectId>",
+  "versionId": -1
 }
 ```
 
-## Zephyr-updater-cli Module
+This will create executions for each test case in the cycle.
 
-### Purpose:
+Save the response to map issue keys to execution IDs.
 
-A standalone Java CLI tool that :
-- Parses Cucumber reports to extract Jira test case keys
-- Updates test execution status in Zephyr Squad Cloud via GraphQL
-- Attaches the Allure HTML report to the corresponding Jira test case
-
-### Usage:
+4. Update Status of Test Executions
+Allure provides statuses like passed, failed, etc. You’ll need to map them to Zephyr statuses:
 ```
-java -jar zephyr-updater-cli.jar \
-  --report-path=path/to/allure-report.zip \
-  --status=Pass \
-  --jira-keys=JIRA-TEST-123,JIRA-TEST-456
-
+Allure Status	Zephyr Status
+passed	1 (Pass)
+failed	2 (Fail)
+broken	4 (Blocked)
 ```
 
-### Key Components:
+Update Execution:
+```
+PUT /rest/zapi/latest/execution/<executionId>/execute
+Authorization: Bearer <token>
 
-**ExecutionUpdater.java**
+{
+  "status": 1
+}
+```
+You can also attach Allure reports (PDF/HTML) or URLs as attachments/comments.
 
-- Parses input arguments
-- Calls ZephyrGraphQLClient to update test execution status
-- Calls JiraAttachmentService to attach the Allure report
+## Suggested Automation Pipeline Integration
 
+1. Post-Test Stage in CI:
 
-**ZephyrGraphQLClient.java**
+- Allure report is generated.
+- Trigger your utility script.
 
-- Handles GraphQL mutations to create/update test executions in Zephyr Squad Cloud
+2. Run Utility Script:
 
+Step 1: Parse JSON results and collect IDs.
+Step 2: Create JIRA cycle.
+Step 3: Push test cases to cycle.
+Step 4: Update execution results.
 
-**JiraAttachmentService.java**
+## Sample File/Script Structure
+'''
+/test-sync
+  ├── parseAllure.ts
+  ├── jiraClient.ts
+  ├── zephyrClient.ts
+  ├── syncToJira.ts
+  ├── config.json (tokens, projectId, etc.)
+'''
 
-- Uses Jira REST API to attach files to test cases
+## Authentication with Zephyr Squad
 
+Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
 
-### Integration Workflow
-
-**1. Test Execution:**
-
-- Run tests using the automation-framework module.
-- Generate Allure HTML report.
-
-
-**2. Post-Execution:**
-
-- Use the zephyr-updater-cli tool to:
-- Parse the Allure report and extract Jira test case keys.
-- Update test execution status in Zephyr Squad Cloud.
-- Attach the Allure report to the corresponding Jira test cases.
 
