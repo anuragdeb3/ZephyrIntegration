@@ -117,23 +117,38 @@ Step 4: Update execution results.
 Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
 
 ```
+<dependency>
+    <groupId>org.apache.httpcomponents</groupId>
+    <artifactId>httpmime</artifactId>
+    <version>4.5.14</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.httpcomponents</groupId>
+    <artifactId>httpclient</artifactId>
+    <version>4.5.14</version>
+</dependency>
+
 public void uploadAttachment(String executionId, File file) throws IOException {
     String uri = "/public/rest/api/1.0/attachment?entityId=" + executionId + "&entityType=EXECUTION";
 
     HttpPost request = new HttpPost(baseUrl + uri);
-    signRequest("POST", uri, "", request); // Auth headers
 
     MultipartEntityBuilder builder = MultipartEntityBuilder.create();
     builder.addBinaryBody("file", file, ContentType.APPLICATION_OCTET_STREAM, file.getName());
 
-    request.setEntity(builder.build());
+    HttpEntity multipart = builder.build();
+    request.setEntity(multipart);
 
-    HttpResponse response = httpClient.execute(request);
+    // Reuse your sendRequest method to apply authentication headers
+    HttpResponse response = sendRequest(request);
+
     int statusCode = response.getStatusLine().getStatusCode();
-    if (statusCode != 200) {
-        System.err.println("❌ Failed to upload attachment for " + executionId + ". HTTP " + statusCode);
-    } else {
+    if (statusCode == 200) {
         System.out.println("📎 Attachment uploaded for execution: " + executionId);
+    } else {
+        System.err.println("❌ Failed to upload attachment for execution: " + executionId + ". Status: " + statusCode);
+        System.err.println(EntityUtils.toString(response.getEntity()));
     }
 }
+
 ```
