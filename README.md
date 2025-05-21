@@ -117,3 +117,52 @@ Step 4: Update execution results.
 Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
 
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+
+public class ResultJsonParser {
+
+    public static void main(String[] args) throws IOException {
+        File folder = new File("path/to/your/folder"); // <-- Update with actual path
+        File[] files = folder.listFiles((dir, name) -> name.endsWith("-result.json"));
+
+        if (files == null) {
+            System.out.println("No result files found.");
+            return;
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+        List<Map<String, String>> resultDataList = new ArrayList<>();
+
+        for (File file : files) {
+            JsonNode root = mapper.readTree(file);
+
+            String uuid = root.path("uuid").asText();
+            String filename = uuid + "-result.json";
+            String feature = root.path("fullName").asText();
+            String status = root.path("status").asText();
+
+            JsonNode links = root.path("links");
+            String testCaseName = links.isArray() && links.size() > 0
+                    ? links.get(0).path("name").asText()
+                    : "UNKNOWN";
+
+            Map<String, String> data = new HashMap<>();
+            data.put("Filename", filename);
+            data.put("Feature", feature);
+            data.put("Status", status);
+            data.put("Testcase name", testCaseName);
+
+            resultDataList.add(data);
+        }
+
+        // Print results
+        for (Map<String, String> entry : resultDataList) {
+            System.out.println(entry);
+        }
+    }
+}
