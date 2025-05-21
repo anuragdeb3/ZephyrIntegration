@@ -116,53 +116,24 @@ Step 4: Update execution results.
 
 Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
 
+```
+public void uploadAttachment(String executionId, File file) throws IOException {
+    String uri = "/public/rest/api/1.0/attachment?entityId=" + executionId + "&entityType=EXECUTION";
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+    HttpPost request = new HttpPost(baseUrl + uri);
+    signRequest("POST", uri, "", request); // Auth headers
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+    MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+    builder.addBinaryBody("file", file, ContentType.APPLICATION_OCTET_STREAM, file.getName());
 
-public class ResultJsonParser {
+    request.setEntity(builder.build());
 
-    public static void main(String[] args) throws IOException {
-        File folder = new File("path/to/your/folder"); // <-- Update with actual path
-        File[] files = folder.listFiles((dir, name) -> name.endsWith("-result.json"));
-
-        if (files == null) {
-            System.out.println("No result files found.");
-            return;
-        }
-
-        ObjectMapper mapper = new ObjectMapper();
-        List<Map<String, String>> resultDataList = new ArrayList<>();
-
-        for (File file : files) {
-            JsonNode root = mapper.readTree(file);
-
-            String uuid = root.path("uuid").asText();
-            String filename = uuid + "-result.json";
-            String feature = root.path("fullName").asText();
-            String status = root.path("status").asText();
-
-            JsonNode links = root.path("links");
-            String testCaseName = links.isArray() && links.size() > 0
-                    ? links.get(0).path("name").asText()
-                    : "UNKNOWN";
-
-            Map<String, String> data = new HashMap<>();
-            data.put("Filename", filename);
-            data.put("Feature", feature);
-            data.put("Status", status);
-            data.put("Testcase name", testCaseName);
-
-            resultDataList.add(data);
-        }
-
-        // Print results
-        for (Map<String, String> entry : resultDataList) {
-            System.out.println(entry);
-        }
+    HttpResponse response = httpClient.execute(request);
+    int statusCode = response.getStatusLine().getStatusCode();
+    if (statusCode != 200) {
+        System.err.println("❌ Failed to upload attachment for " + executionId + ". HTTP " + statusCode);
+    } else {
+        System.out.println("📎 Attachment uploaded for execution: " + executionId);
     }
 }
+```
