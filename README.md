@@ -7,14 +7,14 @@
 - Optionally uploads Allure HTML reports
 
 
-##1. Fetch Test Case IDs from Allure Reports
+## 1. Fetch Test Case IDs from Allure Reports
 Allure JSON files (allure-results) contain metadata such as:
 
 -name
 -status
 -labels (where you can include testCaseId if you tag it in code)
 
-###Sample Allure JSON (*.json) content:
+### Sample Allure JSON (*.json) content:
 ```
 {
   "name": "Login API Test",
@@ -32,7 +32,7 @@ You need to:
 
 Tip: Tag your test cases with @Allure.label("testCaseId", "JIRA-123") in test code.
 
-##2. Create Test Cycle in JIRA Zephyr Squad
+## 2. Create Test Cycle in JIRA Zephyr Squad
 API: Use Zephyr Squad API
 (usually accessible under https://<your-domain>.atlassian.net/rest/zephyr/latest/...)
 
@@ -49,7 +49,7 @@ Authorization: Bearer <token>
 ```
 Response will include "id" of the created cycle.
 
-##3. Add Test Cases to Cycle
+## 3. Add Test Cases to Cycle
 Use the Zephyr Squad API to add test cases by issue keys (JIRA-123, etc.) into the cycle.
 
 ```
@@ -68,7 +68,7 @@ This will create executions for each test case in the cycle.
 
 Save the response to map issue keys to execution IDs.
 
-4. Update Status of Test Executions
+## 4. Update Status of Test Executions
 Allure provides statuses like passed, failed, etc. You’ll need to map them to Zephyr statuses:
 ```
 Allure Status	Zephyr Status
@@ -117,58 +117,47 @@ Step 4: Update execution results.
 Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
 
 ```
-<dependency>
-    <groupId>org.apache.httpcomponents</groupId>
-    <artifactId>httpmime</artifactId>
-    <version>4.5.14</version>
-</dependency>
-<dependency>
-    <groupId>org.apache.httpcomponents</groupId>
-    <artifactId>httpclient</artifactId>
-    <version>4.5.14</version>
-</dependency>
-
 import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.auth.NTCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
 
-import java.io.IOException;
-import java.util.Map;
+public class NTLMProxyExample {
 
-public class HttpUtils {
+    public static void main(String[] args) throws Exception {
+        String proxyHost = "your.proxy.host";
+        int proxyPort = 8080;
+        String proxyUser = "your_username";
+        String proxyPass = "your_password";
+        String domain = "your_domain";
+        String workstation = "your_pc_name"; // or "localhost"
 
-    public static HttpResponse sendGetRequestWithProxy(String url, Map<String, String> headers,
-                                                       String proxyHost, int proxyPort,
-                                                       String proxyUser, String proxyPass) throws IOException {
-
-        // Set up credentials for proxy auth
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
         credsProvider.setCredentials(
                 new AuthScope(proxyHost, proxyPort),
-                new UsernamePasswordCredentials(proxyUser, proxyPass)
+                new NTCredentials(proxyUser, proxyPass, workstation, domain)
         );
 
-        // Define proxy
         HttpHost proxy = new HttpHost(proxyHost, proxyPort);
 
-        // Build client with proxy + credentials
         CloseableHttpClient client = HttpClients.custom()
-                .setDefaultCredentialsProvider(credsProvider)
                 .setProxy(proxy)
+                .setDefaultCredentialsProvider(credsProvider)
                 .build();
 
-        // Create request
-        HttpGet request = new HttpGet(url);
-        if (headers != null) {
-            headers.forEach(request::setHeader);
-        }
+        HttpGet request = new HttpGet("https://your-company.atlassian.net/rest/api/2/myself");
+        request.setHeader("Accept", "application/json");
+        request.setHeader("Authorization", "Bearer your_jira_token");
 
-        return client.execute(request);
+        HttpResponse response = client.execute(request);
+        System.out.println("Status Code: " + response.getStatusLine().getStatusCode());
+        System.out.println("Response Body: " + EntityUtils.toString(response.getEntity()));
     }
 }
+
