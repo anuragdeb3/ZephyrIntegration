@@ -128,8 +128,13 @@ Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for g
     <version>4.5.14</version>
 </dependency>
 
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
@@ -138,15 +143,30 @@ import java.util.Map;
 
 public class HttpUtils {
 
-    public static HttpResponse sendGetRequest(String url, Map<String, String> headers) throws IOException {
-        CloseableHttpClient client = HttpClients.createDefault();
-        HttpGet request = new HttpGet(url);
+    public static HttpResponse sendGetRequestWithProxy(String url, Map<String, String> headers,
+                                                       String proxyHost, int proxyPort,
+                                                       String proxyUser, String proxyPass) throws IOException {
 
-        // Add headers if provided
+        // Set up credentials for proxy auth
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(
+                new AuthScope(proxyHost, proxyPort),
+                new UsernamePasswordCredentials(proxyUser, proxyPass)
+        );
+
+        // Define proxy
+        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+
+        // Build client with proxy + credentials
+        CloseableHttpClient client = HttpClients.custom()
+                .setDefaultCredentialsProvider(credsProvider)
+                .setProxy(proxy)
+                .build();
+
+        // Create request
+        HttpGet request = new HttpGet(url);
         if (headers != null) {
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
-                request.setHeader(entry.getKey(), entry.getValue());
-            }
+            headers.forEach(request::setHeader);
         }
 
         return client.execute(request);
