@@ -103,18 +103,93 @@ Step 3: Push test cases to cycle.
 Step 4: Update execution results.
 
 ## Sample File/Script Structure
-'''
+```
 /test-sync
   ├── parseAllure.ts
   ├── jiraClient.ts
   ├── zephyrClient.ts
   ├── syncToJira.ts
   ├── config.json (tokens, projectId, etc.)
-'''
+```
 
 ## Authentication with Zephyr Squad
 
 Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for generating JWTs for each request).
+
+```
+<dependency>
+  <groupId>com.auth0</groupId>
+  <artifactId>java-jwt</artifactId>
+  <version>3.18.2</version>
+</dependency>
+
+```
+**JWT Generation Code**
+```
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import org.apache.commons.codec.digest.DigestUtils;
+
+import java.util.Date;
+
+public class ZephyrJwtGenerator {
+
+    public static String generateJWT(String accessKey, String secretKey, String accountId,
+                                     String httpMethod, String uriPath, String queryString) {
+
+        // Canonical path format: METHOD&URI&QUERY
+        String canonicalPath = httpMethod.toUpperCase() + "&" + uriPath + "&" + queryString;
+        String qsh = DigestUtils.sha256Hex(canonicalPath);
+
+        long nowMillis = System.currentTimeMillis();
+        long expMillis = nowMillis + 3600_000; // 1 hour expiration
+
+        Algorithm algorithm = Algorithm.HMAC256(secretKey);
+
+        return JWT.create()
+                .withIssuer(accessKey)        // 'iss'
+                .withSubject(accountId)       // 'sub'
+                .withClaim("qsh", qsh)        // 'qsh' = Query String Hash
+                .withIssuedAt(new Date(nowMillis))
+                .withExpiresAt(new Date(expMillis))
+                .sign(algorithm);
+    }
+}
+```
+**Example Usage**
+```
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import org.apache.commons.codec.digest.DigestUtils;
+
+import java.util.Date;
+
+public class ZephyrJwtGenerator {
+
+    public static String generateJWT(String accessKey, String secretKey, String accountId,
+                                     String httpMethod, String uriPath, String queryString) {
+
+        // Canonical path format: METHOD&URI&QUERY
+        String canonicalPath = httpMethod.toUpperCase() + "&" + uriPath + "&" + queryString;
+        String qsh = DigestUtils.sha256Hex(canonicalPath);
+
+        long nowMillis = System.currentTimeMillis();
+        long expMillis = nowMillis + 3600_000; // 1 hour expiration
+
+        Algorithm algorithm = Algorithm.HMAC256(secretKey);
+
+        return JWT.create()
+                .withIssuer(accessKey)        // 'iss'
+                .withSubject(accountId)       // 'sub'
+                .withClaim("qsh", qsh)        // 'qsh' = Query String Hash
+                .withIssuedAt(new Date(nowMillis))
+                .withExpiresAt(new Date(expMillis))
+                .sign(algorithm);
+    }
+}
+```
+
+
 
 ```
 import org.apache.http.HttpHost;
@@ -160,4 +235,4 @@ public class NTLMProxyExample {
         System.out.println("Response Body: " + EntityUtils.toString(response.getEntity()));
     }
 }
-
+'''
