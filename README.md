@@ -128,27 +128,27 @@ Instead of JIRA API tokens, use Zephyr Squad Access Key + Secret Key (used for g
     <version>4.5.14</version>
 </dependency>
 
-public void uploadAttachment(String executionId, File file) throws IOException {
-    String uri = "/public/rest/api/1.0/attachment?entityId=" + executionId + "&entityType=EXECUTION";
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
-    HttpPost request = new HttpPost(baseUrl + uri);
+import java.io.IOException;
+import java.util.Map;
 
-    MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-    builder.addBinaryBody("file", file, ContentType.APPLICATION_OCTET_STREAM, file.getName());
+public class HttpUtils {
 
-    HttpEntity multipart = builder.build();
-    request.setEntity(multipart);
+    public static HttpResponse sendGetRequest(String url, Map<String, String> headers) throws IOException {
+        CloseableHttpClient client = HttpClients.createDefault();
+        HttpGet request = new HttpGet(url);
 
-    // Reuse your sendRequest method to apply authentication headers
-    HttpResponse response = sendRequest(request);
+        // Add headers if provided
+        if (headers != null) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                request.setHeader(entry.getKey(), entry.getValue());
+            }
+        }
 
-    int statusCode = response.getStatusLine().getStatusCode();
-    if (statusCode == 200) {
-        System.out.println("📎 Attachment uploaded for execution: " + executionId);
-    } else {
-        System.err.println("❌ Failed to upload attachment for execution: " + executionId + ". Status: " + statusCode);
-        System.err.println(EntityUtils.toString(response.getEntity()));
+        return client.execute(request);
     }
 }
-
-```
