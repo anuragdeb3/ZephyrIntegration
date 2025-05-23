@@ -158,70 +158,87 @@ public class ZephyrJwtGenerator {
 ```
 **NTLM Proxy Usage**
 ```
-public static String sendNTLMRequest(
-        String method,
-        String url,
-        String username,
-        String password,
-        String domain,
-        String workstation,
-        String proxyHost,
-        int proxyPort,
-        String payloadJson, // null for GET/DELETE
-        Map<String, String> headers // Custom headers like JWT and ZAPI key
-) throws IOException {
+import org.apache.http.*;
+import org.apache.http.auth.*;
+import org.apache.http.auth.params.*;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.methods.*;
+import org.apache.http.impl.auth.NTCredentials;
+import org.apache.http.impl.client.*;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.conn.routing.*;
 
-    CredentialsProvider credsProvider = new BasicCredentialsProvider();
-    credsProvider.setCredentials(
-        new AuthScope(proxyHost, proxyPort),
-        new NTCredentials(username, password, workstation, domain)
-    );
+import java.io.IOException;
+import java.util.Map;
 
-    HttpHost proxy = new HttpHost(proxyHost, proxyPort);
-    DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
+public class NTLMHttpClient {
 
-    try (CloseableHttpClient httpClient = HttpClients.custom()
-            .setDefaultCredentialsProvider(credsProvider)
-            .setRoutePlanner(routePlanner)
-            .build()) {
+    public static String sendNTLMRequest(
+            String method,
+            String url,
+            String proxyHost,
+            int proxyPort,
+            String username,
+            String password,
+            String domain,
+            String workstation,
+            String payloadJson, // Optional for POST/PUT
+            Map<String, String> headers
+    ) throws IOException {
 
-        HttpRequestBase request;
-        switch (method.toUpperCase()) {
-            case "POST":
-                HttpPost post = new HttpPost(url);
-                if (payloadJson != null) {
-                    post.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
-                }
-                request = post;
-                break;
-            case "PUT":
-                HttpPut put = new HttpPut(url);
-                if (payloadJson != null) {
-                    put.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
-                }
-                request = put;
-                break;
-            case "DELETE":
-                request = new HttpDelete(url);
-                break;
-            case "GET":
-            default:
-                request = new HttpGet(url);
-        }
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(
+                new AuthScope(proxyHost, proxyPort),
+                new NTCredentials(username, password, workstation, domain)
+        );
 
-        // Standard headers
-        request.setHeader("Accept", "application/json");
-        request.setHeader("Content-Type", "application/json");
+        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+        DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
 
-        // Add custom headers (JWT, zapiAccessKey)
-        if (headers != null) {
-            for (Map.Entry<String, String> header : headers.entrySet()) {
-                request.setHeader(header.getKey(), header.getValue());
+        try (CloseableHttpClient client = HttpClients.custom()
+                .setDefaultCredentialsProvider(credsProvider)
+                .setRoutePlanner(routePlanner)
+                .build()) {
+
+            HttpRequestBase request;
+
+            switch (method.toUpperCase()) {
+                case "POST":
+                    HttpPost post = new HttpPost(url);
+                    if (payloadJson != null) {
+                        post.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
+                    }
+                    request = post;
+                    break;
+                case "PUT":
+                    HttpPut put = new HttpPut(url);
+                    if (payloadJson != null) {
+                        put.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
+                    }
+                    request = put;
+                    break;
+                case "DELETE":
+                    request = new HttpDelete(url);
+                    break;
+                case "GET":
+                default:
+                    request = new HttpGet(url);
             }
-        }
 
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            return EntityUtils.toString(response.getEntity());
+            // Add headers
+            request.setHeader("Accept", "application/json");
+            request.setHeader("Content-Type", "application/json");
+            if (headers != null) {
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    request.setHeader(entry.getKey(), entry.getValue());
+                }
+            }
+
+            try (CloseableHttpResponse response = client.execute(request)) {
+                return EntityUtils.toString(response.getEntity());
+            }
         }
     }
 }
