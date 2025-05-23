@@ -156,83 +156,74 @@ public class ZephyrJwtGenerator {
     }
 }
 ```
-**Example Usage**
+**NTLM Proxy Usage**
 ```
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
-import org.apache.commons.codec.digest.DigestUtils;
+public static String sendNTLMRequest(
+        String method,
+        String url,
+        String username,
+        String password,
+        String domain,
+        String workstation,
+        String proxyHost,
+        int proxyPort,
+        String payloadJson, // null for GET/DELETE
+        Map<String, String> headers // Custom headers like JWT and ZAPI key
+) throws IOException {
 
-import java.util.Date;
+    CredentialsProvider credsProvider = new BasicCredentialsProvider();
+    credsProvider.setCredentials(
+        new AuthScope(proxyHost, proxyPort),
+        new NTCredentials(username, password, workstation, domain)
+    );
 
-public class ZephyrJwtGenerator {
+    HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+    DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
 
-    public static String generateJWT(String accessKey, String secretKey, String accountId,
-                                     String httpMethod, String uriPath, String queryString) {
+    try (CloseableHttpClient httpClient = HttpClients.custom()
+            .setDefaultCredentialsProvider(credsProvider)
+            .setRoutePlanner(routePlanner)
+            .build()) {
 
-        // Canonical path format: METHOD&URI&QUERY
-        String canonicalPath = httpMethod.toUpperCase() + "&" + uriPath + "&" + queryString;
-        String qsh = DigestUtils.sha256Hex(canonicalPath);
+        HttpRequestBase request;
+        switch (method.toUpperCase()) {
+            case "POST":
+                HttpPost post = new HttpPost(url);
+                if (payloadJson != null) {
+                    post.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
+                }
+                request = post;
+                break;
+            case "PUT":
+                HttpPut put = new HttpPut(url);
+                if (payloadJson != null) {
+                    put.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
+                }
+                request = put;
+                break;
+            case "DELETE":
+                request = new HttpDelete(url);
+                break;
+            case "GET":
+            default:
+                request = new HttpGet(url);
+        }
 
-        long nowMillis = System.currentTimeMillis();
-        long expMillis = nowMillis + 3600_000; // 1 hour expiration
-
-        Algorithm algorithm = Algorithm.HMAC256(secretKey);
-
-        return JWT.create()
-                .withIssuer(accessKey)        // 'iss'
-                .withSubject(accountId)       // 'sub'
-                .withClaim("qsh", qsh)        // 'qsh' = Query String Hash
-                .withIssuedAt(new Date(nowMillis))
-                .withExpiresAt(new Date(expMillis))
-                .sign(algorithm);
-    }
-}
-```
-
-
-
-```
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.NTCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.HttpResponse;
-import org.apache.http.util.EntityUtils;
-
-public class NTLMProxyExample {
-
-    public static void main(String[] args) throws Exception {
-        String proxyHost = "your.proxy.host";
-        int proxyPort = 8080;
-        String proxyUser = "your_username";
-        String proxyPass = "your_password";
-        String domain = "your_domain";
-        String workstation = "your_pc_name"; // or "localhost"
-
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(
-                new AuthScope(proxyHost, proxyPort),
-                new NTCredentials(proxyUser, proxyPass, workstation, domain)
-        );
-
-        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
-
-        CloseableHttpClient client = HttpClients.custom()
-                .setProxy(proxy)
-                .setDefaultCredentialsProvider(credsProvider)
-                .build();
-
-        HttpGet request = new HttpGet("https://your-company.atlassian.net/rest/api/2/myself");
+        // Standard headers
         request.setHeader("Accept", "application/json");
-        request.setHeader("Authorization", "Bearer your_jira_token");
+        request.setHeader("Content-Type", "application/json");
 
-        HttpResponse response = client.execute(request);
-        System.out.println("Status Code: " + response.getStatusLine().getStatusCode());
-        System.out.println("Response Body: " + EntityUtils.toString(response.getEntity()));
+        // Add custom headers (JWT, zapiAccessKey)
+        if (headers != null) {
+            for (Map.Entry<String, String> header : headers.entrySet()) {
+                request.setHeader(header.getKey(), header.getValue());
+            }
+        }
+
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            return EntityUtils.toString(response.getEntity());
+        }
     }
 }
+
 '''
