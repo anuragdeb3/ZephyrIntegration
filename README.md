@@ -244,3 +244,29 @@ public class NTLMHttpClient {
 }
 
 '''
+String method = "get";
+String path = "/executions/search/cycle/38373-7373-7373";
+
+Map<String, String> queryParams = new TreeMap<>(); // TreeMap = auto-sorts keys
+queryParams.put("project", "67688");
+queryParams.put("versionid", "-1");
+
+StringBuilder queryBuilder = new StringBuilder();
+for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+    if (queryBuilder.length() > 0) queryBuilder.append("&");
+    queryBuilder.append(URLEncoder.encode(entry.getKey(), "UTF-8"))
+                .append("=")
+                .append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+}
+
+String canonicalRequest = method + "&" + path + "&" + queryBuilder.toString();
+
+MessageDigest digest = MessageDigest.getInstance("SHA-256");
+byte[] hash = digest.digest(canonicalRequest.getBytes(StandardCharsets.UTF_8));
+StringBuilder hexString = new StringBuilder();
+for (byte b : hash) {
+    String hex = Integer.toHexString(0xff & b);
+    if (hex.length() == 1) hexString.append('0');
+    hexString.append(hex);
+}
+String qsh = hexString.toString();
