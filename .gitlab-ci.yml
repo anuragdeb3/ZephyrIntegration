@@ -1,3 +1,11 @@
-// .gitlab-ci.yml placeholder
+stages:
+  - test
+  - report
 
-
+zephyr_api_job:
+  stage: test
+  script:
+    - mvn clean test
+  artifacts:
+    paths:
+      - target/allure-results
