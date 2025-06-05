@@ -156,117 +156,27 @@ public class ZephyrJwtGenerator {
     }
 }
 ```
-**NTLM Proxy Usage**
+# ✅ How to Actually See the Proxy-Authorization Header
+# ✅ Option 1: Use Apache HttpClient Wire Logging (best for proxy debugging)
+Add the following JVM arguments to enable low-level logging:
+
 ```
-import org.apache.http.*;
-import org.apache.http.auth.*;
-import org.apache.http.auth.params.*;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.*;
-import org.apache.http.impl.auth.NTCredentials;
-import org.apache.http.impl.client.*;
-import org.apache.http.util.EntityUtils;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.conn.routing.*;
+-Dorg.apache.commons.logging.Log=org.apache.commons.logging.impl.SimpleLog
+-Dorg.apache.commons.logging.simplelog.log.org.apache.http=DEBUG
+-Dorg.apache.commons.logging.simplelog.log.org.apache.http.wire=DEBUG
+```
+This will print output like:
+```
+CONNECT proxyhost:8080 HTTP/1.1
+Proxy-Authorization: Basic ZHVtbXk6cGFzc3dvcmQ=
+```
+👉 This is the only reliable way to see proxy handshake, CONNECT, and proxy headers like Proxy-Authorization.
 
-import java.io.IOException;
-import java.util.Map;
+## Enable Full Wire Logs Programmatically (if not using command line)
+You can do this in your test code (not recommended for production):
 
-public class NTLMHttpClient {
-
-    public static String sendNTLMRequest(
-            String method,
-            String url,
-            String proxyHost,
-            int proxyPort,
-            String username,
-            String password,
-            String domain,
-            String workstation,
-            String payloadJson, // Optional for POST/PUT
-            Map<String, String> headers
-    ) throws IOException {
-
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(
-                new AuthScope(proxyHost, proxyPort),
-                new NTCredentials(username, password, workstation, domain)
-        );
-
-        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
-        DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
-
-        try (CloseableHttpClient client = HttpClients.custom()
-                .setDefaultCredentialsProvider(credsProvider)
-                .setRoutePlanner(routePlanner)
-                .build()) {
-
-            HttpRequestBase request;
-
-            switch (method.toUpperCase()) {
-                case "POST":
-                    HttpPost post = new HttpPost(url);
-                    if (payloadJson != null) {
-                        post.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
-                    }
-                    request = post;
-                    break;
-                case "PUT":
-                    HttpPut put = new HttpPut(url);
-                    if (payloadJson != null) {
-                        put.setEntity(new StringEntity(payloadJson, ContentType.APPLICATION_JSON));
-                    }
-                    request = put;
-                    break;
-                case "DELETE":
-                    request = new HttpDelete(url);
-                    break;
-                case "GET":
-                default:
-                    request = new HttpGet(url);
-            }
-
-            // Add headers
-            request.setHeader("Accept", "application/json");
-            request.setHeader("Content-Type", "application/json");
-            if (headers != null) {
-                for (Map.Entry<String, String> entry : headers.entrySet()) {
-                    request.setHeader(entry.getKey(), entry.getValue());
-                }
-            }
-
-            try (CloseableHttpResponse response = client.execute(request)) {
-                return EntityUtils.toString(response.getEntity());
-            }
-        }
-    }
-}
-
-'''
-String method = "get";
-String path = "/executions/search/cycle/38373-7373-7373";
-
-Map<String, String> queryParams = new TreeMap<>(); // TreeMap = auto-sorts keys
-queryParams.put("project", "67688");
-queryParams.put("versionid", "-1");
-
-StringBuilder queryBuilder = new StringBuilder();
-for (Map.Entry<String, String> entry : queryParams.entrySet()) {
-    if (queryBuilder.length() > 0) queryBuilder.append("&");
-    queryBuilder.append(URLEncoder.encode(entry.getKey(), "UTF-8"))
-                .append("=")
-                .append(URLEncoder.encode(entry.getValue(), "UTF-8"));
-}
-
-String canonicalRequest = method + "&" + path + "&" + queryBuilder.toString();
-
-MessageDigest digest = MessageDigest.getInstance("SHA-256");
-byte[] hash = digest.digest(canonicalRequest.getBytes(StandardCharsets.UTF_8));
-StringBuilder hexString = new StringBuilder();
-for (byte b : hash) {
-    String hex = Integer.toHexString(0xff & b);
-    if (hex.length() == 1) hexString.append('0');
-    hexString.append(hex);
-}
-String qsh = hexString.toString();
+```
+System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
+System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
+System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
+```
