@@ -156,8 +156,8 @@ public class ZephyrJwtGenerator {
     }
 }
 ```
-# ✅ How to Actually See the Proxy-Authorization Header
-# ✅ Option 1: Use Apache HttpClient Wire Logging (best for proxy debugging)
+## ✅ How to Actually See the Proxy-Authorization Header
+### ✅ Option 1: Use Apache HttpClient Wire Logging (best for proxy debugging)
 Add the following JVM arguments to enable low-level logging:
 
 ```
@@ -172,7 +172,7 @@ Proxy-Authorization: Basic ZHVtbXk6cGFzc3dvcmQ=
 ```
 👉 This is the only reliable way to see proxy handshake, CONNECT, and proxy headers like Proxy-Authorization.
 
-## Enable Full Wire Logs Programmatically (if not using command line)
+### Option 2: Enable Full Wire Logs Programmatically (if not using command line)
 You can do this in your test code (not recommended for production):
 
 ```
