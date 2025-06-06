@@ -212,105 +212,81 @@ public RequestSpecification getZephyrClient(String jwt, String baseUrl) {
 ## Zephyr code with proxy 
 
 ```
-import io.restassured.RestAssured;
-import io.restassured.specification.RequestSpecification;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.impl.client.*;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.client.methods.*;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.*;
+import org.apache.http.util.EntityUtils;
 
-import java.time.Instant;
-import java.util.Base64;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.util.Map;
 
-public class ZephyrClient {
+public class HttpRequestUtil {
 
-    private static final String PROXY_HOST = "proxy.corporate.com";
-    private static final int PROXY_PORT = 8080;
-    private static final String PROXY_USER = "your_proxy_username";
-    private static final String PROXY_PASS = "your_proxy_password";
+    public static String sendRequest(
+            String method,
+            String url,
+            String jwtToken,
+            Map<String, String> headers,
+            String jsonBody, // null for GET/DELETE
+            String proxyHost,
+            int proxyPort,
+            String proxyUser,
+            String proxyPass
+    ) throws IOException {
 
-    private static final String BASE_URL = "https://prod-play.zephyr4jiracloud.com";
-    private static final String ACCESS_KEY = "your-zephyr-access-key";
-    private static final String SECRET_KEY = "your-zephyr-secret-key";
-    private static final String ACCOUNT_ID = "your-jira-account-id";
-
-    public static void main(String[] args) throws Exception {
-        String method = "GET";
-        String endpoint = "/public/rest/api/1.0/cycles/search?projectId=1234&versionId=-1";
-        String jwt = generateJwtToken(method, endpoint, ACCESS_KEY, SECRET_KEY, ACCOUNT_ID);
-
-        RequestSpecification request = buildRestAssuredClient(jwt);
-        String response = request.get(endpoint)
-                .then()
-                .statusCode(200)
-                .extract()
-                .asString();
-
-        System.out.println("Zephyr API response: " + response);
-    }
-
-    private static RequestSpecification buildRestAssuredClient(String jwt) {
-        HttpHost proxy = new HttpHost(PROXY_HOST, PROXY_PORT);
-
+        // Setup proxy
+        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(
-                new AuthScope(PROXY_HOST, PROXY_PORT),
-                new UsernamePasswordCredentials(PROXY_USER, PROXY_PASS)
-        );
+        credsProvider.setCredentials(new AuthScope(proxyHost, proxyPort),
+                new UsernamePasswordCredentials(proxyUser, proxyPass));
 
-        DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
-
-        CloseableHttpClient httpClient = HttpClientBuilder.create()
-                .setRoutePlanner(routePlanner)
+        CloseableHttpClient client = HttpClients.custom()
                 .setDefaultCredentialsProvider(credsProvider)
+                .setRoutePlanner(new DefaultProxyRoutePlanner(proxy))
                 .build();
 
-        RestAssured.useRelaxedHTTPSValidation(); // Trust proxy cert (assumes already in JVM)
+        HttpRequestBase request;
 
-        RestAssured.config = RestAssured.config().httpClient(
-                io.restassured.config.HttpClientConfig.httpClientConfig()
-                        .httpClientFactory(() -> httpClient)
-        );
+        switch (method.toUpperCase()) {
+            case "POST" -> {
+                HttpPost post = new HttpPost(url);
+                if (jsonBody != null) {
+                    post.setEntity(new StringEntity(jsonBody));
+                }
+                request = post;
+            }
+            case "PUT" -> {
+                HttpPut put = new HttpPut(url);
+                if (jsonBody != null) {
+                    put.setEntity(new StringEntity(jsonBody));
+                }
+                request = put;
+            }
+            case "DELETE" -> request = new HttpDelete(url);
+            case "GET" -> request = new HttpGet(url);
+            default -> throw new IllegalArgumentException("Unsupported method: " + method);
+        }
 
-        return RestAssured.given()
-                .baseUri(BASE_URL)
-                .header("Authorization", jwt)
-                .header("Content-Type", "application/json");
-    }
+        // Add headers
+        if (jwtToken != null && !jwtToken.isEmpty()) {
+            request.setHeader("Authorization", jwtToken);
+        }
+        if (headers != null) {
+            headers.forEach(request::setHeader);
+        }
 
-    private static String generateJwtToken(String method, String uri, String accessKey, String secretKey, String accountId) throws Exception {
-        long expirationTime = Instant.now().getEpochSecond() + 3600;
-        String qsh = getQsh(method, uri);
-
-        String jwtHeader = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes());
-        String jwtPayload = String.format("{\"sub\":\"%s\",\"qsh\":\"%s\",\"iss\":\"%s\",\"exp\":%d}",
-                accountId, qsh, accessKey, expirationTime);
-        String jwtPayloadEncoded = Base64.getUrlEncoder().withoutPadding().encodeToString(jwtPayload.getBytes());
-
-        String signingInput = jwtHeader + "." + jwtPayloadEncoded;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secretKey.getBytes(), "HmacSHA256"));
-        byte[] signature = mac.doFinal(signingInput.getBytes());
-
-        String jwtSignature = Base64.getUrlEncoder().withoutPadding().encodeToString(signature);
-        return "JWT " + signingInput + "." + jwtSignature;
-    }
-
-    private static String getQsh(String method, String uriWithQuery) throws Exception {
-        // Canonical format: method & relative URI (without domain) & sorted query string
-        String canonicalRequest = method.toUpperCase() + "&" +
-                uriWithQuery.split("\\?")[0] + "&" +
-                (uriWithQuery.contains("?") ? uriWithQuery.split("\\?")[1] : "");
-
-        // SHA256 hash of the canonical request
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec("dummy".getBytes(), "HmacSHA256"));
-        byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(canonicalRequest.getBytes());
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        try (CloseableHttpResponse response = client.execute(request)) {
+            int status = response.getStatusLine().getStatusCode();
+            String responseBody = EntityUtils.toString(response.getEntity());
+            System.out.println("Status Code: " + status);
+            return responseBody;
+        }
     }
 }
+
+
 ```
