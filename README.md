@@ -181,7 +181,7 @@ System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "
 System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
 ```
 
-
+```
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
 import org.apache.http.client.config.RequestConfig;
@@ -208,3 +208,4 @@ public RequestSpecification getZephyrClient(String jwt, String baseUrl) {
         .header("Authorization", jwt)
         .header("Content-Type", "application/json");
 }
+```
