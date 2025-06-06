@@ -180,3 +180,31 @@ System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging
 System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
 System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
 ```
+
+
+import io.restassured.RestAssured;
+import io.restassured.specification.RequestSpecification;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.DefaultProxyRoutePlanner;
+import org.apache.http.HttpHost;
+
+public RequestSpecification getZephyrClient(String jwt, String baseUrl) {
+    HttpHost proxy = new HttpHost("proxy.corporate.com", 8080);
+    DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
+
+    RestAssured.useRelaxedHTTPSValidation(); // Trust self-signed certs, useful in corp networks
+
+    RestAssured.config = RestAssured.config().httpClient(
+        new io.restassured.config.HttpClientConfig().httpClientFactory(() -> {
+            return HttpClientBuilder.create()
+                .setRoutePlanner(routePlanner)
+                .build();
+        })
+    );
+
+    return RestAssured.given()
+        .baseUri(baseUrl)
+        .header("Authorization", jwt)
+        .header("Content-Type", "application/json");
+}
