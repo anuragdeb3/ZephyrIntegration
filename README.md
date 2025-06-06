@@ -212,81 +212,65 @@ public RequestSpecification getZephyrClient(String jwt, String baseUrl) {
 ## Zephyr code with proxy 
 
 ```
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.*;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.*;
-import org.apache.http.util.EntityUtils;
+public static String sendRequest(
+        String method,
+        String url,
+        String jwtToken,
+        Map<String, String> headers,
+        Map<String, Object> jsonBodyMap, // now a Map
+        String proxyHost,
+        int proxyPort,
+        String proxyUser,
+        String proxyPass
+) throws IOException {
+    ObjectMapper mapper = new ObjectMapper(); // Jackson mapper
 
-import java.io.IOException;
-import java.util.Map;
+    HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+    CredentialsProvider credsProvider = new BasicCredentialsProvider();
+    credsProvider.setCredentials(
+            new AuthScope(proxyHost, proxyPort),
+            new UsernamePasswordCredentials(proxyUser, proxyPass)
+    );
 
-public class HttpRequestUtil {
+    CloseableHttpClient client = HttpClients.custom()
+            .setDefaultCredentialsProvider(credsProvider)
+            .setRoutePlanner(new DefaultProxyRoutePlanner(proxy))
+            .build();
 
-    public static String sendRequest(
-            String method,
-            String url,
-            String jwtToken,
-            Map<String, String> headers,
-            String jsonBody, // null for GET/DELETE
-            String proxyHost,
-            int proxyPort,
-            String proxyUser,
-            String proxyPass
-    ) throws IOException {
+    HttpRequestBase request;
 
-        // Setup proxy
-        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(new AuthScope(proxyHost, proxyPort),
-                new UsernamePasswordCredentials(proxyUser, proxyPass));
-
-        CloseableHttpClient client = HttpClients.custom()
-                .setDefaultCredentialsProvider(credsProvider)
-                .setRoutePlanner(new DefaultProxyRoutePlanner(proxy))
-                .build();
-
-        HttpRequestBase request;
-
-        switch (method.toUpperCase()) {
-            case "POST" -> {
-                HttpPost post = new HttpPost(url);
-                if (jsonBody != null) {
-                    post.setEntity(new StringEntity(jsonBody));
-                }
-                request = post;
+    switch (method.toUpperCase()) {
+        case "POST" -> {
+            HttpPost post = new HttpPost(url);
+            if (jsonBodyMap != null) {
+                String json = mapper.writeValueAsString(jsonBodyMap);
+                post.setEntity(new StringEntity(json));
             }
-            case "PUT" -> {
-                HttpPut put = new HttpPut(url);
-                if (jsonBody != null) {
-                    put.setEntity(new StringEntity(jsonBody));
-                }
-                request = put;
+            request = post;
+        }
+        case "PUT" -> {
+            HttpPut put = new HttpPut(url);
+            if (jsonBodyMap != null) {
+                String json = mapper.writeValueAsString(jsonBodyMap);
+                put.setEntity(new StringEntity(json));
             }
-            case "DELETE" -> request = new HttpDelete(url);
-            case "GET" -> request = new HttpGet(url);
-            default -> throw new IllegalArgumentException("Unsupported method: " + method);
+            request = put;
         }
+        case "DELETE" -> request = new HttpDelete(url);
+        case "GET" -> request = new HttpGet(url);
+        default -> throw new IllegalArgumentException("Unsupported method: " + method);
+    }
 
-        // Add headers
-        if (jwtToken != null && !jwtToken.isEmpty()) {
-            request.setHeader("Authorization", jwtToken);
-        }
-        if (headers != null) {
-            headers.forEach(request::setHeader);
-        }
+    if (jwtToken != null && !jwtToken.isEmpty()) {
+        request.setHeader("Authorization", jwtToken);
+    }
+    if (headers != null) {
+        headers.forEach(request::setHeader);
+    }
 
-        try (CloseableHttpResponse response = client.execute(request)) {
-            int status = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(response.getEntity());
-            System.out.println("Status Code: " + status);
-            return responseBody;
-        }
+    try (CloseableHttpResponse response = client.execute(request)) {
+        return EntityUtils.toString(response.getEntity());
     }
 }
-
 
 ```
