@@ -182,6 +182,35 @@ System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wir
 ```
 
 ```
+HttpRequestInterceptor requestLogger = (request, context) -> {
+    System.out.println("=== HTTP Request ===");
+    System.out.println(request.getRequestLine());
+    for (Header header : request.getAllHeaders()) {
+        System.out.println(header.getName() + ": " + header.getValue());
+    }
+};
+
+HttpResponseInterceptor responseLogger = (response, context) -> {
+    System.out.println("=== HTTP Response ===");
+    System.out.println(response.getStatusLine());
+    for (Header header : response.getAllHeaders()) {
+        System.out.println(header.getName() + ": " + header.getValue());
+    }
+};
+
+try (CloseableHttpClient client = HttpClients.custom()
+        .setDefaultCredentialsProvider(credsProvider)
+        .setRoutePlanner(routePlanner)
+        .addInterceptorFirst(requestLogger)
+        .addInterceptorFirst(responseLogger)
+        .build()) {
+
+
+```
+
+
+
+```
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
 import org.apache.http.client.config.RequestConfig;
