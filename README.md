@@ -307,52 +307,66 @@ public static String sendRequest(
 ```
 public class ExcelUtils {
 
-    public static Object[][] getUserData(String filePath, String sheetName) {
-        try (FileInputStream fis = new FileInputStream(filePath);
-             XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
+    public static Object[][] mergeUserAndAccountData(String userFile, String userSheet,
+                                                     String accFile, String accSheet) {
+        try (
+            FileInputStream fisUsers = new FileInputStream(userFile);
+            FileInputStream fisAccs = new FileInputStream(accFile);
+            XSSFWorkbook usersWb = new XSSFWorkbook(fisUsers);
+            XSSFWorkbook accsWb = new XSSFWorkbook(fisAccs)
+        ) {
+            XSSFSheet users = usersWb.getSheet(userSheet);
+            XSSFSheet accounts = accsWb.getSheet(accSheet);
 
-            XSSFSheet sheet = workbook.getSheet(sheetName);
-            int rowCount = sheet.getPhysicalNumberOfRows() - 1;
-            int colCount = sheet.getRow(0).getLastCellNum();
-
-            Object[][] data = new Object[rowCount][colCount];
+            int rowCount = users.getPhysicalNumberOfRows() - 1; // assuming both same size
+            Object[][] data = new Object[rowCount][8]; // 4 users + 4 account columns
 
             for (int i = 1; i <= rowCount; i++) {
-                XSSFRow row = sheet.getRow(i);
-                for (int j = 0; j < colCount; j++) {
-                    data[i - 1][j] = row.getCell(j).toString();
+                XSSFRow userRow = users.getRow(i);
+                XSSFRow accRow = accounts.getRow(i);
+
+                for (int j = 0; j < 4; j++) {
+                    data[i - 1][j] = userRow.getCell(j).toString(); // user creds
+                }
+                for (int j = 0; j < 4; j++) {
+                    data[i - 1][j + 4] = accRow.getCell(j).toString(); // account info
                 }
             }
             return data;
-
         } catch (IOException e) {
-            throw new RuntimeException("Error reading Excel: " + e.getMessage(), e);
+            throw new RuntimeException("Excel read error: " + e.getMessage(), e);
         }
     }
 }
 
-/////////
+
 
 public class TestUserWorkflow {
 
     ThreadLocal<WebDriver> driverUser1 = new ThreadLocal<>();
     ThreadLocal<WebDriver> driverUser2 = new ThreadLocal<>();
 
-    @DataProvider(name = "userData", parallel = true)
-    public Object[][] getUserDataFromExcel() {
-        return ExcelUtils.getUserData("src/test/resources/users.xlsx", "Sheet1");
+    @DataProvider(name = "workflowData", parallel = true)
+    public Object[][] getMergedData() {
+        return ExcelUtils.mergeUserAndAccountData(
+                "src/test/resources/users.xlsx", "Sheet1",
+                "src/test/resources/accounts.xlsx", "Sheet1"
+        );
     }
 
-    @Test(dataProvider = "userData")
-    public void runWorkflow(String doUser, String doPass, String approveUser, String approvePass) {
+    @Test(dataProvider = "workflowData")
+    public void runWorkflow(String doUser, String doPass,
+                            String approveUser, String approvePass,
+                            String accId, String custName, String accType, String amount) {
+
         WebDriver driver1 = createDriver();
         WebDriver driver2 = createDriver();
         driverUser1.set(driver1);
         driverUser2.set(driver2);
 
         try {
-            performDoChanges(driver1, doUser, doPass);
-            performApproval(driver2, approveUser, approvePass);
+            performDoChanges(driver1, doUser, doPass, accId, custName, accType, amount);
+            performApproval(driver2, approveUser, approvePass, accId);
         } finally {
             driver1.quit();
             driver2.quit();
@@ -364,16 +378,31 @@ public class TestUserWorkflow {
         return new ChromeDriver();
     }
 
-    private void performDoChanges(WebDriver driver, String username, String password) {
+    private void performDoChanges(WebDriver driver, String user, String pass,
+                                  String accId, String cust, String type, String amount) {
         driver.get("https://your-app.com/login");
-        // simulate login & changes
+        // login, pick accountId, make changes (e.g., update amount)
     }
 
-    private void performApproval(WebDriver driver, String username, String password) {
+    private void performApproval(WebDriver driver, String user, String pass, String accId) {
         driver.get("https://your-app.com/login");
-        // simulate approval steps
+        // login, search for accId, verify and approve
     }
 }
+
+
+
+
+
+
+<suite name="ParallelAccountWorkflow" parallel="methods" thread-count="10">
+    <test name="MultiUserAccountWorkflow">
+        <classes>
+            <class name="tests.TestUserWorkflow"/>
+        </classes>
+    </test>
+</suite>
+
 
 
 ```
