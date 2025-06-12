@@ -303,3 +303,58 @@ public static String sendRequest(
 }
 
 ```
+
+```
+public class TestUserWorkflow {
+
+    ThreadLocal<WebDriver> driverUser1 = new ThreadLocal<>();
+    ThreadLocal<WebDriver> driverUser2 = new ThreadLocal<>();
+
+    @DataProvider(name = "userData", parallel = true)
+    public Object[][] getUserData() {
+        return new Object[][]{
+            {"user1a", "pass1a", "user2a", "pass2a"},
+            {"user1b", "pass1b", "user2b", "pass2b"},
+            // ... 8 more users
+        };
+    }
+
+    @Test(dataProvider = "userData")
+    public void runWorkflow(String doUser, String doPass, String approveUser, String approvePass) {
+        // Initialize both drivers
+        WebDriver driver1 = createDriver();
+        WebDriver driver2 = createDriver();
+        driverUser1.set(driver1);
+        driverUser2.set(driver2);
+
+        try {
+            // Step 1: Do changes
+            performDoChanges(driverUser1.get(), doUser, doPass);
+
+            // Step 2: Approve changes
+            performApproval(driverUser2.get(), approveUser, approvePass);
+
+        } finally {
+            driverUser1.get().quit();
+            driverUser2.get().quit();
+        }
+    }
+
+    private WebDriver createDriver() {
+        WebDriverManager.chromedriver().setup();
+        return new ChromeDriver(); // You can customize options here
+    }
+
+    private void performDoChanges(WebDriver driver, String username, String password) {
+        driver.get("https://your-app.com/login");
+        // login, do changes...
+    }
+
+    private void performApproval(WebDriver driver, String username, String password) {
+        driver.get("https://your-app.com/login");
+        // login as approver, approve changes...
+    }
+}
+
+
+```
