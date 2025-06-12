@@ -305,94 +305,31 @@ public static String sendRequest(
 ```
 
 ```
-public class ExcelUtils {
-
-    public static Object[][] mergeUserAndAccountData(String userFile, String userSheet,
-                                                     String accFile, String accSheet) {
-        try (
-            FileInputStream fisUsers = new FileInputStream(userFile);
-            FileInputStream fisAccs = new FileInputStream(accFile);
-            XSSFWorkbook usersWb = new XSSFWorkbook(fisUsers);
-            XSSFWorkbook accsWb = new XSSFWorkbook(fisAccs)
-        ) {
-            XSSFSheet users = usersWb.getSheet(userSheet);
-            XSSFSheet accounts = accsWb.getSheet(accSheet);
-
-            int rowCount = users.getPhysicalNumberOfRows() - 1; // assuming both same size
-            Object[][] data = new Object[rowCount][8]; // 4 users + 4 account columns
-
-            for (int i = 1; i <= rowCount; i++) {
-                XSSFRow userRow = users.getRow(i);
-                XSSFRow accRow = accounts.getRow(i);
-
-                for (int j = 0; j < 4; j++) {
-                    data[i - 1][j] = userRow.getCell(j).toString(); // user creds
-                }
-                for (int j = 0; j < 4; j++) {
-                    data[i - 1][j + 4] = accRow.getCell(j).toString(); // account info
-                }
-            }
-            return data;
-        } catch (IOException e) {
-            throw new RuntimeException("Excel read error: " + e.getMessage(), e);
-        }
-    }
+{
+  "manifest_version": 2,
+  "name": "Auto Auth Cancel",
+  "version": "1.0",
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ]
 }
 
 
-
-public class TestUserWorkflow {
-
-    ThreadLocal<WebDriver> driverUser1 = new ThreadLocal<>();
-    ThreadLocal<WebDriver> driverUser2 = new ThreadLocal<>();
-
-    @DataProvider(name = "workflowData", parallel = true)
-    public Object[][] getMergedData() {
-        return ExcelUtils.mergeUserAndAccountData(
-                "src/test/resources/users.xlsx", "Sheet1",
-                "src/test/resources/accounts.xlsx", "Sheet1"
-        );
-    }
-
-    @Test(dataProvider = "workflowData")
-    public void runWorkflow(String doUser, String doPass,
-                            String approveUser, String approvePass,
-                            String accId, String custName, String accType, String amount) {
-
-        WebDriver driver1 = createDriver();
-        WebDriver driver2 = createDriver();
-        driverUser1.set(driver1);
-        driverUser2.set(driver2);
-
-        try {
-            performDoChanges(driver1, doUser, doPass, accId, custName, accType, amount);
-            performApproval(driver2, approveUser, approvePass, accId);
-        } finally {
-            driver1.quit();
-            driver2.quit();
-        }
-    }
-
-    private WebDriver createDriver() {
-        WebDriverManager.chromedriver().setup();
-        return new ChromeDriver();
-    }
-
-    private void performDoChanges(WebDriver driver, String user, String pass,
-                                  String accId, String cust, String type, String amount) {
-        driver.get("https://your-app.com/login");
-        // login, pick accountId, make changes (e.g., update amount)
-    }
-
-    private void performApproval(WebDriver driver, String user, String pass, String accId) {
-        driver.get("https://your-app.com/login");
-        // login, search for accId, verify and approve
-    }
-}
+chrome.webRequest.onAuthRequired.addListener(
+  function(details, callbackFn) {
+    callbackFn({cancel: true});  // CANCEL the popup
+  },
+  {urls: ["<all_urls>"]},
+  ["blocking"]
+);
 
 
-
-
+options.addArguments("load-extension=/path/to/auto-auth-extension");
 
 
 <suite name="ParallelAccountWorkflow" parallel="methods" thread-count="10">
