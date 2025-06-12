@@ -305,54 +305,73 @@ public static String sendRequest(
 ```
 
 ```
+public class ExcelUtils {
+
+    public static Object[][] getUserData(String filePath, String sheetName) {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
+
+            XSSFSheet sheet = workbook.getSheet(sheetName);
+            int rowCount = sheet.getPhysicalNumberOfRows() - 1;
+            int colCount = sheet.getRow(0).getLastCellNum();
+
+            Object[][] data = new Object[rowCount][colCount];
+
+            for (int i = 1; i <= rowCount; i++) {
+                XSSFRow row = sheet.getRow(i);
+                for (int j = 0; j < colCount; j++) {
+                    data[i - 1][j] = row.getCell(j).toString();
+                }
+            }
+            return data;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading Excel: " + e.getMessage(), e);
+        }
+    }
+}
+
+/////////
+
 public class TestUserWorkflow {
 
     ThreadLocal<WebDriver> driverUser1 = new ThreadLocal<>();
     ThreadLocal<WebDriver> driverUser2 = new ThreadLocal<>();
 
     @DataProvider(name = "userData", parallel = true)
-    public Object[][] getUserData() {
-        return new Object[][]{
-            {"user1a", "pass1a", "user2a", "pass2a"},
-            {"user1b", "pass1b", "user2b", "pass2b"},
-            // ... 8 more users
-        };
+    public Object[][] getUserDataFromExcel() {
+        return ExcelUtils.getUserData("src/test/resources/users.xlsx", "Sheet1");
     }
 
     @Test(dataProvider = "userData")
     public void runWorkflow(String doUser, String doPass, String approveUser, String approvePass) {
-        // Initialize both drivers
         WebDriver driver1 = createDriver();
         WebDriver driver2 = createDriver();
         driverUser1.set(driver1);
         driverUser2.set(driver2);
 
         try {
-            // Step 1: Do changes
-            performDoChanges(driverUser1.get(), doUser, doPass);
-
-            // Step 2: Approve changes
-            performApproval(driverUser2.get(), approveUser, approvePass);
-
+            performDoChanges(driver1, doUser, doPass);
+            performApproval(driver2, approveUser, approvePass);
         } finally {
-            driverUser1.get().quit();
-            driverUser2.get().quit();
+            driver1.quit();
+            driver2.quit();
         }
     }
 
     private WebDriver createDriver() {
         WebDriverManager.chromedriver().setup();
-        return new ChromeDriver(); // You can customize options here
+        return new ChromeDriver();
     }
 
     private void performDoChanges(WebDriver driver, String username, String password) {
         driver.get("https://your-app.com/login");
-        // login, do changes...
+        // simulate login & changes
     }
 
     private void performApproval(WebDriver driver, String username, String password) {
         driver.get("https://your-app.com/login");
-        // login as approver, approve changes...
+        // simulate approval steps
     }
 }
 
