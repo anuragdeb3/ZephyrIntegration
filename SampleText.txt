@@ -1,0 +1,92 @@
+Here is a comprehensive testing strategy for the **Customer Settings form** (from a banking application), covering all key angles:
+
+---
+
+### ✅ 1. Positive Test Cases
+
+| Test Case ID | Description                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC\_POS\_01  | Select all valid radio options (Yes/No), checkboxes (Sterling/Euro), and enter valid text for BIC, NCC, Settlement Account, Sort Code ranges |
+| TC\_POS\_02  | Fill all mandatory fields for a Financial Institution (FI = Yes) and successfully submit                                                     |
+| TC\_POS\_03  | Fill all required fields when FI = No (bypassing FI-specific fields)                                                                         |
+| TC\_POS\_04  | Add multiple (≤10) lower-upper sort code ranges and verify all save correctly                                                                |
+| TC\_POS\_05  | Submit with optional fields left empty (where allowed) and verify successful save                                                            |
+| TC\_POS\_06  | "Auto reject for missed cut-off" = Yes → ensure the option is saved correctly                                                                |
+| TC\_POS\_07  | Save and resume progress – ensure data persistence                                                                                           |
+
+---
+
+### ❌ 2. Negative Test Cases
+
+| Test Case ID | Description                                                                 |
+| ------------ | --------------------------------------------------------------------------- |
+| TC\_NEG\_01  | Leave required fields blank → verify inline validation                      |
+| TC\_NEG\_02  | Settlement Account number <14 or >14 digits                                 |
+| TC\_NEG\_03  | Invalid BIC format (e.g., incorrect length, special characters)             |
+| TC\_NEG\_04  | Invalid sort code (non-numeric or incorrect length)                         |
+| TC\_NEG\_05  | Add more than 10 sort code range blocks                                     |
+| TC\_NEG\_06  | Enter text in numeric-only fields (e.g., account number)                    |
+| TC\_NEG\_07  | Set conflicting radio buttons (e.g., both "Yes" and "No" via JS) and submit |
+
+---
+
+### ⚠️ 3. Error Handling Requirements
+
+#### ✅ Client-Side Validations:
+
+* **BIC**: Must be 8 or 11 alphanumeric characters; validated against format
+* **Settlement Account**: 14-digit numeric only
+* **Sort Codes**: 6-digit numeric
+* **Radio/Checkbox**: At least one must be selected where required
+* **Required Fields**: All mandatory fields should be validated before submission
+
+#### ⚠️ Error Messages Should Be:
+
+* **Specific**: e.g., `"Settlement account must be exactly 14 digits"`
+* **User-friendly**: Avoid technical jargon
+* **Real-time (if possible)**: Display on blur or input
+
+---
+
+### 🌐 4. Global API Error Handling (Backend Responses)
+
+| Scenario                    | Expected Handling                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `400 Bad Request`           | Show message: *"Submission contains invalid data. Please check highlighted fields."* |
+| `401 Unauthorized`          | Redirect to login or show *"Session expired. Please login again."*                   |
+| `403 Forbidden`             | Show *"You do not have permission to perform this action."*                          |
+| `404 Not Found`             | Show *"Server could not locate resource. Contact support."*                          |
+| `500 Internal Server Error` | Show fallback message: *"Something went wrong. Please try again later."*             |
+| Timeout/Error               | Retry logic with fallback message: *"Request timed out. Please retry."*              |
+
+---
+
+### 🧪 5. Edge Case Scenarios
+
+| Case                 | Test                                                              |
+| -------------------- | ----------------------------------------------------------------- |
+| Max fields added     | Add 10 sort code ranges (max allowed) and ensure data is retained |
+| Whitespace in fields | Try leading/trailing spaces in BIC, NCC – should auto-trim        |
+| Special characters   | Inputs like `<script>` should be escaped or rejected              |
+| Resubmission         | Try submitting twice – ensure no duplication                      |
+| Case sensitivity     | Check if BICs/NCCs are case-sensitive or normalized               |
+| Session expiry       | Mid-form expiry → should alert user and save progress locally     |
+
+---
+
+### 🔐 6. OWASP & Broken Authentication/Access Tests
+
+| Issue                      | Check                                                                     |
+| -------------------------- | ------------------------------------------------------------------------- |
+| Broken Authentication      | Ensure login is required to access form                                   |
+| Cross-Site Scripting (XSS) | Input like `<script>alert()</script>` must be escaped server-side         |
+| CSRF                       | Check for CSRF tokens in POST requests                                    |
+| Broken Access Control      | Logged in user should not access or edit other customer data              |
+| Sensitive Data Exposure    | Passwords, account numbers not visible in console/network logs            |
+| Rate Limiting              | API endpoint should rate-limit frequent submissions                       |
+| Secure Headers             | HTTP responses should include `X-Frame-Options`, `X-XSS-Protection`, etc. |
+| No GET over sensitive data | Ensure sensitive data is never passed via query parameters                |
+
+---
+
+Would you like these cases in an Excel/CSV format for your test management tool (like Zephyr/TestRail), or should I also help generate Selenium test code based on this?
