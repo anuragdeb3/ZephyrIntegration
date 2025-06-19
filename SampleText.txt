@@ -1,4 +1,4 @@
-Here is a comprehensive testing strategy for the **Customer Settings form** (from a banking application), covering all key angles:
+
 
 ---
 
@@ -89,4 +89,142 @@ Here is a comprehensive testing strategy for the **Customer Settings form** (fro
 
 ---
 
-Would you like these cases in an Excel/CSV format for your test management tool (like Zephyr/TestRail), or should I also help generate Selenium test code based on this?
+
+
+
+:
+
+---
+
+### ✅ **Folder & File Structure**
+
+```
+cypress-bdd-framework/
+│
+├── cypress/
+│   ├── e2e/
+│   │   ├── features/
+│   │   │   └── customer-settings.feature
+│   │   └── step_definitions/
+│   │       └── customerSettings.steps.js
+│   ├── pages/
+│   │   ├── CustomerSettingsPage.js
+│   │   └── FinancialInfoPage.js
+│   └── support/
+│       ├── commands.js
+│       └── e2e.js
+│
+├── plugins/
+│   └── index.js
+│
+├── cypress.config.js
+├── environment.js
+└── package.json
+```
+
+---
+
+### ⚙️ **Key Elements**
+
+#### 1. **environment.js**
+
+```js
+module.exports = {
+  baseUrl: "https://your-bankingapp.com",
+  timeout: 10000
+};
+```
+
+#### 2. **cypress.config.js**
+
+```js
+const env = require('./environment');
+
+module.exports = {
+  e2e: {
+    baseUrl: env.baseUrl,
+    supportFile: 'cypress/support/e2e.js',
+    setupNodeEvents(on, config) {
+      return config;
+    },
+  },
+};
+```
+
+#### 3. **Page Object: CustomerSettingsPage.js**
+
+```js
+class CustomerSettingsPage {
+  elements = {
+    financialTransfersYes: () => cy.get('[name="financialTransfers"][value="Yes"]'),
+    financialTransfersNo: () => cy.get('[name="financialTransfers"][value="No"]'),
+    sterlingCheckbox: () => cy.get('[name="sterling"]'),
+    euroCheckbox: () => cy.get('[name="euro"]'),
+    saveButton: () => cy.contains('Save progress'),
+  };
+
+  selectFinancialTransfer(option) {
+    this.elements[`financialTransfers${option}`]().check({ force: true });
+  }
+
+  selectCurrency(currency) {
+    this.elements[`${currency.toLowerCase()}Checkbox`]().check({ force: true });
+  }
+
+  saveProgress() {
+    this.elements.saveButton().click();
+  }
+}
+
+module.exports = new CustomerSettingsPage();
+```
+
+#### 4. **Feature File: customer-settings.feature**
+
+```gherkin
+Feature: Customer Settings Form
+
+  Scenario Outline: Fill out form with valid details
+    Given I visit the customer settings page
+    When I select financial transfer as "<transfer>"
+    And I select settlement currency "<currency>"
+    Then I save the progress
+
+    Examples:
+      | transfer | currency |
+      | Yes      | Sterling |
+      | No       | Euro     |
+```
+
+#### 5. **Step Definition: customerSettings.steps.js**
+
+```js
+const customerSettings = require('../../pages/CustomerSettingsPage');
+
+Given('I visit the customer settings page', () => {
+  cy.visit('/customer-settings');
+});
+
+When('I select financial transfer as {string}', (option) => {
+  customerSettings.selectFinancialTransfer(option);
+});
+
+When('I select settlement currency {string}', (currency) => {
+  customerSettings.selectCurrency(currency);
+});
+
+Then('I save the progress', () => {
+  customerSettings.saveProgress();
+});
+```
+
+#### 6. **Browser Launch (in `commands.js`)**
+
+```js
+Cypress.Commands.add("launchApp", () => {
+  cy.visit('/');
+});
+```
+
+---
+
