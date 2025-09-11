@@ -343,3 +343,42 @@ options.addArguments("load-extension=/path/to/auto-auth-extension");
 
 
 ```
+
+```
+public class GraphQLQueryBuilder {
+    
+    public String buildQuery(String root, Map<String, Object> fields) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{ ").append(root).append(" { ");
+        buildFields(sb, fields);
+        sb.append("} }");
+        return sb.toString();
+    }
+
+    private void buildFields(StringBuilder sb, Map<String, Object> fields) {
+        for (Map.Entry<String, Object> entry : fields.entrySet()) {
+            sb.append(entry.getKey());
+            if (entry.getValue() instanceof Map) {
+                sb.append(" { ");
+                buildFields(sb, (Map<String, Object>) entry.getValue());
+                sb.append(" } ");
+            } else if (entry.getValue() instanceof List) {
+                sb.append(" { ");
+                for (Object subField : (List<?>) entry.getValue()) {
+                    if (subField instanceof String) {
+                        sb.append(subField).append(" ");
+                    } else if (subField instanceof Map) {
+                        buildFields(sb, (Map<String, Object>) subField);
+                    }
+                }
+                sb.append("} ");
+            } else {
+                sb.append(" ");
+            }
+        }
+    }
+}
+
+
+
+``` 
