@@ -345,6 +345,62 @@ options.addArguments("load-extension=/path/to/auto-auth-extension");
 ```
 
 ```
+Got it 👍 — I see from your screenshot that your GraphQL query (`GetCustomerDataById`) has:
+
+* **Top-level fields** (`success, message, dataSourceType, timestamp`)
+* **Sections** like `result`, `customer`, `draft`, `financialInstitutionSettings`, `deliveryChannelDetails`, etc.
+* Each section can have **10–15 fields**.
+* Some sections have **nested subsections** (e.g., `recordCreatedBy`, `fiSortCodeRanges`, etc.).
+
+When you have **8+ sections each with 10–15 fields**, **managing test-case-driven GraphQL queries** becomes tricky if you only rely on a simple builder.
+
+---
+
+## ✅ Scalable Approach for Large GraphQL Queries
+
+### 1. **Represent Queries as Data Structures (JSON/YAML/Map)**
+
+Instead of hardcoding, store your "section-to-fields" mapping in a config file (YAML/JSON) or Java Map.
+
+For example (YAML):
+
+```yaml
+sections:
+  result:
+    - metaData:
+        - id
+        - state
+        - isActive
+        - recordCreatedBy:
+            - userId
+            - userName
+  customer:
+    - brand
+    - customerId
+    - customerName
+  draft:
+    - customerAgreement:
+        - agreementId
+        - customerStartDt
+        - customerEndDt
+        - bankLineBrand
+    - customerContactDetails:
+        - custContactDtlsId
+        - contactName
+        - contactType
+        - emailAddress
+        - phoneNumber
+```
+
+Then in your step definition, you pick which sections/fields to include per test.
+
+---
+
+### 2. **Recursive Query Builder**
+
+Create a **recursive query builder** that walks through this structure and builds GraphQL queries dynamically:
+
+```java
 public class GraphQLQueryBuilder {
     
     public String buildQuery(String root, Map<String, Object> fields) {
@@ -378,7 +434,108 @@ public class GraphQLQueryBuilder {
         }
     }
 }
+```
 
+---
+
+### 3. **Usage Example**
+
+**Test case wants only `customer` section:**
+
+```java
+Map<String, Object> customerFields = Map.of(
+    "customer", List.of("brand", "customerId", "customerName")
+);
+
+GraphQLQueryBuilder builder = new GraphQLQueryBuilder();
+String query = builder.buildQuery("getCustomerDataById", customerFields);
+
+System.out.println(query);
+```
+
+Output:
+
+```graphql
+{ getCustomerDataById { customer { brand customerId customerName } } }
+```
+
+---
+
+**Test case wants `customer` + `draft.customerAgreement`:**
+
+```java
+Map<String, Object> draftFields = Map.of(
+    "customerAgreement", List.of("agreementId", "customerStartDt", "customerEndDt", "bankLineBrand")
+);
+
+Map<String, Object> allSections = Map.of(
+    "customer", List.of("brand", "customerId", "customerName"),
+    "draft", List.of(draftFields)
+);
+
+String query = builder.buildQuery("getCustomerDataById", allSections);
+```
+
+Output:
+
+```graphql
+{ getCustomerDataById {
+    customer { brand customerId customerName }
+    draft { customerAgreement { agreementId customerStartDt customerEndDt bankLineBrand } }
+} }
+```
+
+---
+
+### 4. **Integrate with Cucumber**
+
+In the `.feature` file, let testers specify which sections to include:
+
+```gherkin
+Scenario Outline: Fetch customer data
+  Given I build a GraphQL query with sections <sections>
+  When I send the GraphQL query
+  Then I should get a valid response
+
+Examples:
+  | sections                |
+  | customer                |
+  | customer,draft          |
+  | result,customer,draft   |
+```
+
+And in Java step:
+
+```java
+@Given("I build a GraphQL query with sections {string}")
+public void buildGraphQLQuery(String sections) {
+    String[] selectedSections = sections.split(",");
+    Map<String, Object> chosenFields = new HashMap<>();
+
+    for (String sec : selectedSections) {
+        chosenFields.put(sec.trim(), QueryFieldRepository.getFields(sec.trim()));
+    }
+
+    GraphQLQueryBuilder builder = new GraphQLQueryBuilder();
+    String query = builder.buildQuery("getCustomerDataById", chosenFields);
+    ScenarioContext.set("graphqlQuery", query);
+}
+```
+
+Where `QueryFieldRepository` can load the **full list of fields for each section** from YAML/JSON.
+
+---
+
+## 🔑 Benefits
+
+* Scales easily for **8+ sections × 15 fields each**.
+* Testers don’t need to hardcode queries; they just **pick sections**.
+* Supports nested objects recursively.
+* Configurable and reusable.
+
+---
+
+👉 Do you want me to **build a working Java + Rest Assured + Cucumber sample repo** with this recursive GraphQL builder (so you can just drop it in), or should I keep it as a generic design pattern for now?
 
 
 ``` 
